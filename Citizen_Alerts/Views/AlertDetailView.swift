@@ -1,0 +1,374 @@
+//
+//  AlertDetailView.swift
+//  Citizen Alerts
+//
+//  Created by Minchan Kim on 10/25/25.
+//
+
+import SwiftUI
+import MapKit
+
+struct AlertDetailView: View {
+    let alert: Alert
+    @StateObject private var alertService = AlertService.shared
+    @StateObject private var locationManager = LocationManager.shared
+    @Environment(\.dismiss) private var dismiss
+    
+    @State private var showingReportAgain = false
+    @State private var distance: Double?
+    
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    // Header
+                    headerSection
+                    
+                    // Description
+                    if let description = alert.description {
+                        descriptionSection(description)
+                    }
+                    
+                    // Location
+                    locationSection
+                    
+                    // Photos
+                    if !alert.photos.isEmpty {
+                        photosSection
+                    }
+                    
+                    // Info
+                    infoSection
+                    
+                    // Action Buttons
+                    actionButtons
+                }
+                .padding()
+            }
+            .navigationTitle(alert.type.rawValue)
+            .navigationBarModifiers()
+            .toolbar {
+                ToolbarItem(placement: trailingToolbarPlacement()) {
+                    Button("Close") { dismiss() }
+                }
+            }
+            .onAppear {
+                calculateDistance()
+            }
+            .sheet(isPresented: $showingReportAgain) {
+                ReportView(existingAlert: alert)
+            }
+        }
+    }
+    
+    private var headerSection: some View {
+        HStack(alignment: .top) {
+            Image(systemName: alert.type.icon)
+                .font(.largeTitle)
+                .foregroundColor(Color(alert.type.color))
+                .frame(width: 60, height: 60)
+                .background(Color(alert.type.color).opacity(0.1))
+                .cornerRadius(12)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(alert.title)
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                HStack {
+                    Label(alert.severity.rawValue, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(severityColor(alert.severity).opacity(0.1))
+                        .foregroundColor(severityColor(alert.severity))
+                        .cornerRadius(6)
+                    
+                    if alert.isVerified {
+                        Label("Verified", systemImage: "checkmark.seal.fill")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            
+            Spacer()
+        }
+    }
+    
+    private func descriptionSection(_ description: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Description")
+                .font(.headline)
+            Text(description)
+                .font(.body)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.adaptiveGray)
+        .cornerRadius(12)
+    }
+    
+    private var locationSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Location")
+                .font(.headline)
+            
+            if let address = alert.location.address {
+                HStack {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundColor(.red)
+                    Text(address)
+                        .font(.subheadline)
+                }
+            }
+            
+            if let distance = distance {
+                HStack {
+                    Image(systemName: "location.fill")
+                        .foregroundColor(.blue)
+                    Text(String(format: "%.2f km 거리", distance))
+                        .font(.subheadline)
+                }
+            }
+            
+            // Mini Map
+            Map(
+                coordinateRegion: .constant(MKCoordinateRegion(
+                    center: alert.location.coordinate,
+                    span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+                )),
+                annotationItems: [alert]
+            ) { alert in
+                MapPin(
+                    coordinate: alert.location.coordinate,
+                    tint: Color(alert.type.color)
+                )
+            }
+            .frame(height: 200)
+            .cornerRadius(12)
+        }
+    }
+    
+    private var photosSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Photos")
+                    .font(.headline)
+                Spacer()
+                Text("\(alert.photos.count) photos")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(Array(alert.photos.enumerated()), id: \.offset) { index, photo in
+                        PhotoThumbnailView(photoName: photo, index: index + 1, totalCount: alert.photos.count)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+    
+    private var infoSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Information")
+                .font(.headline)
+            
+            InfoRow(icon: "person.2.fill", label: "Report Count", value: "\(alert.reportCount) reports")
+            InfoRow(icon: "clock.fill", label: "Created At", value: formatDate(alert.createdAt))
+            InfoRow(icon: "clock.arrow.circlepath", label: "Updated", value: formatDate(alert.updatedAt))
+        }
+        .padding()
+        .background(Color.adaptiveGray)
+        .cornerRadius(12)
+    }
+    
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
+            Button(action: { showingReportAgain = true }) {
+                Label("Report This Location", systemImage: "exclamationmark.bubble.fill")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.red)
+                    .cornerRadius(12)
+            }
+            
+            Button(action: { shareAlert() }) {
+                Label("Share", systemImage: "square.and.arrow.up")
+                    .font(.headline)
+                    .foregroundColor(.blue)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(12)
+            }
+        }
+    }
+    
+    private func severityColor(_ severity: Severity) -> Color {
+        switch severity {
+        case .low: return .green
+        case .medium: return .yellow
+        case .high: return .orange
+        case .critical: return .red
+        }
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy. MM. dd HH:mm"
+        return formatter.string(from: date)
+    }
+    
+    private func calculateDistance() {
+        guard let userLocation = locationManager.userLocation else { return }
+        distance = locationManager.distanceBetween(userLocation, alert.location.coordinate)
+    }
+    
+    private func shareAlert() {
+        // TODO: Implement sharing
+    }
+}
+
+struct InfoRow: View {
+    let icon: String
+    let label: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundColor(.blue)
+                .frame(width: 20)
+            Text(label)
+                .foregroundColor(.secondary)
+            Spacer()
+            Text(value)
+                .fontWeight(.medium)
+        }
+    }
+}
+
+#Preview {
+    AlertDetailView(alert: Alert(
+        type: .fire,
+        title: "강남구 화재 신고",
+        description: "강남역 근처 건물에서 연기가 보입니다.",
+        location: LocationData(latitude: 37.5665, longitude: 126.9780),
+        severity: .high,
+        reportCount: 5
+    ))
+}
+
+struct PhotoThumbnailView: View {
+    let photoName: String
+    let index: Int
+    let totalCount: Int
+    @State private var showingFullScreen = false
+    
+    var body: some View {
+        Button(action: { showingFullScreen = true }) {
+            ZStack {
+                // Placeholder image with gradient background
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.blue.opacity(0.3), Color.purple.opacity(0.3)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 120, height: 120)
+                
+                VStack(spacing: 8) {
+                    Image(systemName: "photo.fill")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                    
+                    Text("Photo \(index)")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                }
+                
+                // Photo count badge for multiple photos
+                if totalCount > 1 {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            Text("\(totalCount)")
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.black.opacity(0.6))
+                                .cornerRadius(8)
+                        }
+                        Spacer()
+                    }
+                    .padding(8)
+                }
+            }
+        }
+        .sheet(isPresented: $showingFullScreen) {
+            PhotoGalleryView(photoName: photoName, index: index, totalCount: totalCount)
+        }
+    }
+}
+
+struct PhotoGalleryView: View {
+    let photoName: String
+    let index: Int
+    let totalCount: Int
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationView {
+            ZStack {
+                // Full screen placeholder
+                RoundedRectangle(cornerRadius: 0)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.blue.opacity(0.4), Color.purple.opacity(0.4)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    Image(systemName: "photo.fill")
+                        .font(.system(size: 80))
+                        .foregroundColor(.white)
+                    
+                    VStack(spacing: 8) {
+                        Text("Photo \(index) of \(totalCount)")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                        
+                        Text("Sample Photo: \(photoName)")
+                            .font(.body)
+                            .foregroundColor(.white.opacity(0.8))
+                    }
+                }
+            }
+            .navigationTitle("Photo Gallery")
+            .navigationBarModifiers()
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}

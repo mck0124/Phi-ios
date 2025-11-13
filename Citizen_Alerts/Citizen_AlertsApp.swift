@@ -1,8 +1,8 @@
 //
 //  Citizen_AlertsApp.swift
-//  Citizen_Alerts
+//  Citizen Alerts
 //
-//  Created by Minchan Kim on 10/28/25.
+//  Created by Minchan Kim on 10/25/25.
 //
 
 import SwiftUI
