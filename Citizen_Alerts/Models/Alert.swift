@@ -100,6 +100,7 @@ enum Severity: String, Codable {
 /// 알림 데이터 모델
 struct Alert: Identifiable, Codable, Equatable {
     let id: UUID
+    let incidentId: Int64?
     let type: AlertType
     let title: String
     let description: String?
@@ -115,6 +116,7 @@ struct Alert: Identifiable, Codable, Equatable {
     init(
         id: UUID = UUID(),
         type: AlertType,
+        incidentId: Int64? = nil,
         title: String,
         description: String? = nil,
         location: LocationData,
@@ -127,6 +129,7 @@ struct Alert: Identifiable, Codable, Equatable {
         reporterId: String? = nil
     ) {
         self.id = id
+        self.incidentId = incidentId
         self.type = type
         self.title = title
         self.description = description
@@ -168,6 +171,7 @@ struct AlertInput: Identifiable {
     var description: String
     var photos: [AlertPhoto]
     var location: LocationData?
+    var locationDescription: String
     var severity: Severity
     var anonymityLevel: AnonymityLevel
     
@@ -177,6 +181,7 @@ struct AlertInput: Identifiable {
         description: String = "",
         photos: [AlertPhoto] = [],
         location: LocationData? = nil,
+        locationDescription: String = "",
         severity: Severity = .medium,
         anonymityLevel: AnonymityLevel = .anonymous
     ) {
@@ -185,6 +190,7 @@ struct AlertInput: Identifiable {
         self.description = description
         self.photos = photos
         self.location = location
+        self.locationDescription = locationDescription
         self.severity = severity
         self.anonymityLevel = anonymityLevel
     }

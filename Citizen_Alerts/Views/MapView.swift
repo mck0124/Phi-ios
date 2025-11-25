@@ -39,7 +39,16 @@ struct MapView: View {
     }
     
     var filteredAlerts: [Alert] {
-        var alerts = alertService.fetchAlerts(withinRadius: notificationRadius)
+        // Start with all alerts from the service (which come from backend incidents)
+        var alerts = alertService.alerts
+        
+        // Distance filter
+        if let centerLocation = locationManager.userLocation {
+            alerts = alerts.filter { alert in
+                let distance = locationManager.distanceBetween(centerLocation, alert.location.coordinate)
+                return distance <= notificationRadius
+            }
+        }
         
         // Type filter
         if let type = filteredType {
@@ -53,7 +62,7 @@ struct MapView: View {
             alerts = alerts.filter { severityLevel($0.severity) >= severityLevel(minSeverityEnum) }
         }
         
-        return alerts
+        return alerts.sorted { $0.createdAt > $1.createdAt }
     }
     
     private func severityLevel(_ severity: Severity) -> Int {
@@ -87,9 +96,40 @@ struct MapView: View {
                 .onChange(of: locationManager.authorizationStatus) {
                     handleLocationPermissionChange()
                 }
+                .onChange(of: alertService.alerts.count) { _ in
+                    // Update map when incidents are loaded from backend
+                    if !filteredAlerts.isEmpty {
+                        updateRegionToShowAlerts()
+                    }
+                }
                 .ignoresSafeArea(.all, edges: [.top, .bottom])
                 .sheet(item: $selectedAlert) { alert in
                     AlertDetailView(alert: alert)
+                }
+                
+                // Loading indicator
+                if alertService.isLoading {
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .padding()
+                        .background(Color.white.opacity(0.8))
+                        .cornerRadius(10)
+                }
+                
+                // Error indicator
+                if let error = alertService.error {
+                    VStack {
+                        Text("Error loading incidents")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                        Text(error.localizedDescription)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.9))
+                    .cornerRadius(10)
+                    .padding(.top, 100)
                 }
                 
                 // Background overlay when menu is expanded - moved to main ZStack
@@ -181,6 +221,12 @@ struct MapView: View {
                     }
                     .zIndex(1000)
                 }
+            }
+            .task {
+                await alertService.fetchAlerts()
+            }
+            .refreshable {
+                await alertService.fetchAlerts()
             }
             .sheet(isPresented: $showingReportSheet) {
                 ReportView()
@@ -662,6 +708,29 @@ struct MapView: View {
         withAnimation {
             region.center = userLocation
             region.span = MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        }
+    }
+    
+    private func updateRegionToShowAlerts() {
+        guard !filteredAlerts.isEmpty else { return }
+        
+        // Calculate bounding box for all alerts
+        let latitudes = filteredAlerts.map { $0.location.coordinate.latitude }
+        let longitudes = filteredAlerts.map { $0.location.coordinate.longitude }
+        
+        guard let minLat = latitudes.min(),
+              let maxLat = latitudes.max(),
+              let minLon = longitudes.min(),
+              let maxLon = longitudes.max() else { return }
+        
+        let centerLat = (minLat + maxLat) / 2
+        let centerLon = (minLon + maxLon) / 2
+        let latDelta = max(maxLat - minLat, 0.01) * 1.2 // Add 20% padding
+        let lonDelta = max(maxLon - minLon, 0.01) * 1.2
+        
+        withAnimation {
+            region.center = CLLocationCoordinate2D(latitude: centerLat, longitude: centerLon)
+            region.span = MKCoordinateSpan(latitudeDelta: latDelta, longitudeDelta: lonDelta)
         }
     }
     
