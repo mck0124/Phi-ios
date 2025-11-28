@@ -28,9 +28,17 @@ struct ReportView: View {
     @State private var showingImagePicker = false
     @State private var isSubmitting = false
     @State private var showSuccessAlert = false
+    @State private var locationDescriptionText = ""
     
     init(existingAlert: Alert? = nil) {
         self.existingAlert = existingAlert
+        
+        if let alert = existingAlert {
+            _selectedType = State(initialValue: alert.type)
+            _title = State(initialValue: alert.title)
+            _description = State(initialValue: alert.description ?? "")
+            _locationDescriptionText = State(initialValue: alert.location.address ?? "")
+        }
     }
     
     var body: some View {
@@ -162,10 +170,14 @@ struct ReportView: View {
                         }
                         .foregroundColor(.orange)
                     }
+                    
+                    TextField("예: 1 Queens Road, Central, Hong Kong", text: $locationDescriptionText)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
                 } header: {
                     Text("Location")
                 } footer: {
-                    Text("자동으로 현재 위치가 사용됩니다")
+                    Text("자동으로 현재 위치가 사용되며 필요 시 주소를 입력하세요")
                 }
                 
                 // Submit
@@ -230,22 +242,22 @@ struct ReportView: View {
             photos: selectedPhotos,
             location: LocationData(
                 latitude: userLocation.latitude,
-                longitude: userLocation.longitude
+                longitude: userLocation.longitude,
+                address: locationDescriptionText.isEmpty ? nil : locationDescriptionText
             ),
+            locationDescription: locationDescriptionText,
             severity: severity,
             anonymityLevel: anonymityLevel
         )
         
         Task {
             do {
-                if let existingAlert = existingAlert {
-                    // Increment report count for existing alert
-                    try await alertService.incrementReportCount(for: existingAlert.id)
-                } else {
-                    // Create new alert
-                    _ = try await alertService.createAlert(from: input, photos: selectedPhotos)
-                }
-                
+                let incidentId = existingAlert?.incidentId
+                _ = try await alertService.createAlert(
+                    from: input,
+                    photos: selectedPhotos,
+                    incidentId: incidentId
+                )
                 await MainActor.run {
                     isSubmitting = false
                     showSuccessAlert = true

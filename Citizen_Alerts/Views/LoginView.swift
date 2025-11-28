@@ -65,13 +65,6 @@ struct LoginView: View {
 
 }
 
-struct LoginView_Previews: PreviewProvider {
-    static var previews: some View {
-        LoginView()
-            .environmentObject(AuthManager.shared)
-    }
-}
-
 // MARK: - Email Login Page
 struct EmailLoginFormView: View {
     @EnvironmentObject private var authManager: AuthManager
@@ -398,3 +391,10 @@ private extension LoginView {
     }
     
 }
+
+//struct LoginView_Previews: PreviewProvider {
+//    static var previews: some View {
+//        LoginView()
+//            .environmentObject(AuthManager.shared)
+//    }
+//}

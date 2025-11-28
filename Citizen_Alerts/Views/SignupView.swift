@@ -169,7 +169,7 @@ struct SignupView: View {
                             }
                             
                             // Password field
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 8) {
                                 SecureField("Password (min 8 characters)",
                                             text: $password,
                                             onCommit: {
@@ -186,9 +186,18 @@ struct SignupView: View {
                                                 .stroke(passwordTouched && !isPasswordValid ? Color.red : Color.clear, lineWidth: 1.5)
                                         )
                                 )
+                                .onChange(of: password) { _, _ in
+                                    passwordTouched = true
+                                }
                                 
-                                if passwordTouched && !isPasswordValid {
-                                    Text("Min 8 chars, 1 capital letter, 1 number, 1 symbol.")
+                                // Password strength indicator
+                                if !password.isEmpty {
+                                    PasswordStrengthView(password: password)
+                                        .transition(.opacity)
+                                }
+                                
+                                if passwordTouched && !isPasswordValid && !password.isEmpty {
+                                    Text("Password does not meet all requirements.")
                                         .font(.system(size: 13))
                                         .foregroundColor(.red)
                                         .padding(.leading, 4)
@@ -390,6 +399,79 @@ struct SignupView: View {
                 }
             }
         }
+    }
+}
+
+struct PasswordStrengthView: View {
+    let password: String
+    
+    private var strength: PasswordStrength {
+        Validator.evaluatePasswordStrength(password)
+    }
+    
+    private var strengthColor: Color {
+        switch strength {
+        case .veryWeak: return .red
+        case .weak: return .orange
+        case .medium: return .yellow
+        case .strong: return .green
+        case .veryStrong: return Color("primaryBlue")
+        }
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            // Strength bar
+            ZStack(alignment: .leading) {
+                // Background bar
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color(.systemGray5))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 4)
+                
+                // Progress bar - using scaleEffect with animation
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(strengthColor)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 4)
+                    .scaleEffect(x: strength.progress, anchor: .leading)
+            }
+            .frame(height: 4)
+            .animation(.spring(response: 0.5, dampingFraction: 0.75), value: strength.progress)
+            .animation(.easeInOut(duration: 0.4), value: strengthColor)
+            
+            // Strength text
+            HStack {
+                Text("Password strength: ")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                Text(strength.description)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(strengthColor)
+                    .contentTransition(.opacity)
+            }
+            .animation(.easeInOut(duration: 0.3), value: strength.description)
+            .animation(.easeInOut(duration: 0.3), value: strengthColor)
+            
+            // Requirements checklist
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Validator.getPasswordRequirements(password), id: \.requirement) { req in
+                    HStack(spacing: 6) {
+                        Image(systemName: req.met ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 12))
+                            .foregroundColor(req.met ? .green : .gray)
+                            .scaleEffect(req.met ? 1.15 : 1.0)
+                        Text(req.requirement)
+                            .font(.system(size: 11))
+                            .foregroundColor(req.met ? .green : .secondary)
+                    }
+                    .animation(.spring(response: 0.35, dampingFraction: 0.7), value: req.met)
+                }
+            }
+            .padding(.top, 2)
+        }
+        .padding(.leading, 4)
+        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: password)
     }
 }
 
