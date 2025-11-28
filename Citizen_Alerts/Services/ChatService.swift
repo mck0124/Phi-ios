@@ -3,27 +3,57 @@
 //  Citizen Alerts
 //
 //  Created by Minchan Kim on 10/25/25.
+//  Updated to call backend chatbot (Qwen VLM via phi-backend)
 //
 
 import Foundation
 import Combine
 import UIKit
 
-/// 채팅 메시지
+// MARK: - Backend DTOs
+
+struct BotImageAnalysis: Decodable {
+    let incidentType: String
+    let severity: String
+    let incidentDescription: String
+
+    enum CodingKeys: String, CodingKey {
+        case incidentType = "incident_type"
+        case severity
+        case incidentDescription = "incident_description"
+    }
+}
+
+struct BotChatResponse: Decodable {
+    let reply: String?
+    let imageAnalysis: BotImageAnalysis?
+    let intent: String?
+    let showReportButton: Bool?
+    let reportButtonLabel: String?
+
+    enum CodingKeys: String, CodingKey {
+        case reply
+        case imageAnalysis = "image_analysis"
+        case intent
+        case showReportButton = "show_report_button"
+        case reportButtonLabel = "report_button_label"
+    }
+}
+
+// MARK: - Chat models
+
 struct ChatMessage: Identifiable, Equatable {
     let id: UUID
     let content: String
     let isUser: Bool
     let timestamp: Date
-    var messageType: MessageType
     var images: [UIImage] = []
-    var quickReplies: [String]?
-    var alertCard: ChatAlertCard?
-    
+    var quickReplies: [String]? = nil
+
     var hasImages: Bool {
         !images.isEmpty
     }
-    
+
     var imageCountText: String {
         if images.count == 1 {
             return "Attached 1 image"
@@ -31,210 +61,228 @@ struct ChatMessage: Identifiable, Equatable {
             return "Attached \(images.count) images"
         }
     }
-    
-    init(id: UUID = UUID(), content: String, isUser: Bool, timestamp: Date = Date(), messageType: MessageType = .text, images: [UIImage] = [], quickReplies: [String]? = nil, alertCard: ChatAlertCard? = nil) {
+
+    init(
+        id: UUID = UUID(),
+        content: String,
+        isUser: Bool,
+        timestamp: Date = Date(),
+        images: [UIImage] = [],
+        quickReplies: [String]? = nil
+    ) {
         self.id = id
         self.content = content
         self.isUser = isUser
         self.timestamp = timestamp
-        self.messageType = messageType
         self.images = images
         self.quickReplies = quickReplies
-        self.alertCard = alertCard
     }
-    
+
     static func == (lhs: ChatMessage, rhs: ChatMessage) -> Bool {
         lhs.id == rhs.id
     }
 }
 
-struct ChatAlertCard: Equatable {
-    let title: String
-    let location: String
-    let description: String
-    let severity: String
-}
+// MARK: - Chat service
 
-enum MessageType {
-    case text
-    case quickReply
-    case alertCard
-}
-
-/// 챗봇 서비스
 @MainActor
 class ChatService: ObservableObject {
     static let shared = ChatService()
-    
+
     @Published var messages: [ChatMessage] = []
-    @Published var isTyping = false
-    
+    @Published var isTyping: Bool = false
+
+    /// 백엔드 세션 유지용
+    private let sessionId: String
+
+    /// 챗봇 백엔드 베이스 URL (phi-backend)
+    private let backendBaseURL: String = APIConfig.baseURL
+
+    private var accessToken: String? {
+            AuthManager.shared.token
+    }
+
     private init() {
+        self.sessionId = UUID().uuidString
         addBotWelcomeMessage()
     }
-    
-    /// 사용자 메시지 전송
+
+    // MARK: - Public
+
     func sendMessage(_ text: String, images: [UIImage] = []) {
-        let userMessage = ChatMessage(content: text, isUser: true, images: images)
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasText = !trimmed.isEmpty
+        let hasImages = !images.isEmpty
+
+        guard hasText || hasImages else { return }
+
+        // 1) 유저 메시지 UI에 추가
+        let userMessage = ChatMessage(
+            content: hasText ? trimmed : (hasImages ? "Sent \(images.count) image(s)" : ""),
+            isUser: true,
+            images: images
+        )
         messages.append(userMessage)
-        
-        // 챗봇 응답
+
+        // 2) 챗봇 호출
         isTyping = true
         Task {
-            await generateBotResponse(for: text, images: images)
+            await generateBotResponse(for: hasText ? trimmed : "", images: images)
         }
     }
-    
-    /// 챗봇 응답 생성
-    private func generateBotResponse(for userMessage: String, images: [UIImage]) async {
-        // 간단한 지연 (타이핑 효과)
-        try? await Task.sleep(nanoseconds: 1_500_000_000)
-        
-        let lowercased = userMessage.lowercased()
-        
-        // 이미지가 있고 특정 키워드가 있으면 경고 카드 생성
-        if !images.isEmpty && (lowercased.contains("knife") || lowercased.contains("knife") || lowercased.contains("danger") || lowercased.contains("emergency") || lowercased.contains("attack") || lowercased.contains("naked") || lowercased.contains("running")) {
-            // 경고 카드와 함께 응답
-            let alertTitle = extractAlertTitle(from: userMessage)
-            let location = extractLocation(from: userMessage) ?? "Central, Hong Kong"
-            
-            let alertCard = ChatAlertCard(
-                title: alertTitle,
-                location: location,
-                description: userMessage,
-                severity: "High"
-            )
-            
-            let response = alertTitle
-            let quickReplies = ["Did I get it right?", "Need more info"]
-            
-            isTyping = false
-            let botMessage = ChatMessage(
-                content: response,
-                isUser: false,
-                quickReplies: quickReplies,
-                alertCard: alertCard
-            )
-            messages.append(botMessage)
-            return
-        }
-        
-        var response = ""
-        var quickReplies: [String]? = nil
-        
-        // 키워드 기반 응답
-        if lowercased.contains("도움말") || lowercased.contains("help") {
-            response = """
-            Hello! I'm the Citizen Alert chatbot. How can I help you?
-            
-            Available commands:
-            • "report" - Reporting guide
-            • "alerts" - View recent alerts
-            • "help" - Help guide
-            • "nearby" - View alerts near you
-            """
-        } else if lowercased.contains("신고") || lowercased.contains("report") {
-            response = """
-            How to report:
-            
-            1. Tap the 'Report' tab at the bottom
-            2. Select incident type (fire, traffic, emergency, etc.)
-            3. Choose location (auto or manual)
-            4. Add photos and description
-            5. Submit your report
-            
-            For emergencies, call 999 directly!
-            """
-        } else if lowercased.contains("알림") || lowercased.contains("alerts") {
-            response = """
-            To view recent alerts:
-            
-            • Map tab - View alerts on map
-            • Alerts tab - View as list
-            • Filter to see specific types
-            
-            Auto-alert settings can be changed in Settings.
-            """
-        } else if lowercased.contains("급") || lowercased.contains("emergency") {
-            response = """
-            ⚠️ Emergency Report
-            
-            For urgent situations, call immediately:
-            
-            🚨 999 (Fire, Medical)
-            🚨 999 (Police)
-            
-            Also report in the app to alert people nearby.
-            """
-        } else if lowercased.contains("what") && lowercased.contains("happen") {
-            response = "I can help you check recent incidents. Try asking about specific locations or types of alerts."
-            quickReplies = ["Show nearby alerts", "Report an incident"]
-        } else if lowercased.contains("감사") || lowercased.contains("고마워") || lowercased.contains("thanks") {
-            response = "You're welcome! Feel free to ask if you need more help. 😊"
-        } else {
-            // 기본 응답
-            response = """
-            I'm sorry, I didn't understand that. 😅
-            
-            Try these commands:
-            • "help" - Usage guide
-            • "report" - Reporting guide
-            • "alerts" - How to view alerts
-            
-            Feel free to ask other questions!
-            """
-        }
-        
-        isTyping = false
-        
-        let botMessage = ChatMessage(content: response, isUser: false, quickReplies: quickReplies)
-        messages.append(botMessage)
-    }
-    
-    // MARK: - Helper Functions
-    private func extractAlertTitle(from text: String) -> String {
-        let lowercased = text.lowercased()
-        
-        if lowercased.contains("knife") || lowercased.contains("naked") || lowercased.contains("running") {
-            let location = extractLocation(from: text) ?? "The Center"
-            return "Man with knife spotted at \(location)"
-        } else if lowercased.contains("fire") {
-            return "Fire breakout detected"
-        } else if lowercased.contains("traffic") {
-            return "Traffic incident reported"
-        } else {
-            return "Incident reported"
-        }
-    }
-    
-    private func extractLocation(from text: String) -> String? {
-        let locations = ["central", "queen's road", "the center", "admiralty", "causeway bay"]
-        let lowercased = text.lowercased()
-        
-        for location in locations {
-            if lowercased.contains(location) {
-                return location.capitalized
-            }
-        }
-        return nil
-    }
-    
-    /// 환영 메시지 추가
-    private func addBotWelcomeMessage() {
-        let welcomeMessage = ChatMessage(
-            content: """
-            Hello! I'm the Citizen Alert chatbot. 👋
-            
-            Type "help" if you need assistance.
-            """,
-            isUser: false
-        )
-        messages.append(welcomeMessage)
-    }
-    
-    /// 대화 초기화
+
     func clearChat() {
         messages.removeAll()
         addBotWelcomeMessage()
+    }
+
+    // MARK: - Backend call
+
+    private func generateBotResponse(for userMessage: String, images: [UIImage]) async {
+        defer {
+            Task { @MainActor in
+                self.isTyping = false
+            }
+        }
+
+        guard let url = URL(string: "\(backendBaseURL)/api/chat") else {
+            appendSystemMessage("Chatbot server URL is invalid.")
+            return
+        }
+
+        do {
+            let request = try makeMultipartRequest(
+                url: url,
+                text: userMessage.isEmpty ? "Please analyze this image." : userMessage,
+                images: images
+            )
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let http = response as? HTTPURLResponse else {
+                appendSystemMessage("Invalid response from chatbot server.")
+                return
+            }
+
+            guard (200..<300).contains(http.statusCode) else {
+                appendSystemMessage("Chatbot server error: \(http.statusCode)")
+                return
+            }
+
+            let decoder = JSONDecoder()
+            let botResponse = try decoder.decode(BotChatResponse.self, from: data)
+
+            let replyText = (botResponse.reply ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            let finalText: String = replyText.isEmpty
+                ? "I couldn't generate a proper response."
+                : replyText
+
+            // 🔹 report 버튼 노출 여부는 show_report_button 에만 의존
+            var quickReplies: [String]? = nil
+            if let show = botResponse.showReportButton, show {
+                let label = botResponse.reportButtonLabel ?? "Report this"
+                quickReplies = [label]
+            }
+
+            let botMessage = ChatMessage(
+                content: finalText,
+                isUser: false,
+                quickReplies: quickReplies
+            )
+
+            await MainActor.run {
+                self.messages.append(botMessage)
+            }
+
+            // 필요하면 imageAnalysis를 별도 시스템 메시지로 붙이고 싶을 때 여기서 처리
+            // (현재는 Python 쪽에서 reply 안에 이미 설명을 넣고 있음)
+            /*
+            if let analysis = botResponse.imageAnalysis {
+                let analysisText = """
+                [IMAGE_ANALYSIS] type=\(analysis.incidentType), severity=\(analysis.severity)
+                \(analysis.incidentDescription)
+                """
+                let analysisMsg = ChatMessage(
+                    content: analysisText,
+                    isUser: false
+                )
+                await MainActor.run {
+                    self.messages.append(analysisMsg)
+                }
+            }
+            */
+
+        } catch {
+            appendSystemMessage("Failed to contact chatbot: \(error.localizedDescription)")
+        }
+    }
+
+    /// multipart/form-data 요청 바디 생성
+    private func makeMultipartRequest(url: URL, text: String, images: [UIImage]) throws -> URLRequest {
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+
+        // 🔑 여기 추가: JWT 토큰이 있으면 Authorization 헤더로 붙이기
+        if let token = accessToken, !token.isEmpty {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            print("🔑 [ChatService] Using access token: \(token.prefix(20))...")
+        } else {
+            print("⚠️ [ChatService] No access token. Authorization header will NOT be set.")
+        }
+
+        var body = Data()
+
+        func appendField(name: String, value: String) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(value)\r\n".data(using: .utf8)!)
+        }
+
+        // sessionId
+        appendField(name: "sessionId", value: sessionId)
+
+        // text
+        appendField(name: "text", value: text)
+
+        // image (첫 번째만 전송)
+        if let firstImage = images.first,
+           let jpegData = firstImage.jpegData(compressionQuality: 0.8) {
+
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"image\"; filename=\"image.jpg\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+            body.append(jpegData)
+            body.append("\r\n".data(using: .utf8)!)
+        }
+
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+
+        return request
+    }
+
+    // MARK: - Helpers
+
+    private func appendSystemMessage(_ text: String) {
+        let msg = ChatMessage(content: text, isUser: false)
+        messages.append(msg)
+    }
+
+    private func addBotWelcomeMessage() {
+        let welcome = ChatMessage(
+            content: """
+            Hello! I'm the Citizen Alert chatbot. 👋
+
+            You can:
+            • Ask what incidents are happening in Hong Kong.
+            • Ask how to use the app or reporting.
+            • Send incident photos and I’ll help you analyze and report them.
+            """,
+            isUser: false
+        )
+        messages.append(welcome)
     }
 }
