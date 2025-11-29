@@ -44,9 +44,9 @@ struct User: Identifiable, Codable {
 
 /// 사용자 권한
 enum UserRole: String, Codable {
-    case user = "사용자"
-    case moderator = "관리자"
-    case admin = "시스템관리자"
+    case user = "User"
+    case moderator = "Moderator"
+    case admin = "Administrator"
 }
 
 // MARK: - Mapping from backend DTO

@@ -25,6 +25,7 @@ struct MapView: View {
     @State private var showingChatView = false
     @State private var showingProfileMenu = false
     @State private var showingAlertFilterMenu = false
+    @State private var showingLeaderboard = false
     @State private var filteredType: AlertType?
     @State private var isBottomMenuExpanded = false
     
@@ -221,6 +222,7 @@ struct MapView: View {
                     }
                     .zIndex(1000)
                 }
+                
             }
             .task {
                 await alertService.fetchAlerts()
@@ -236,6 +238,9 @@ struct MapView: View {
             }
             .sheet(isPresented: $showingChatView) {
                 ChatView()
+            }
+            .sheet(isPresented: $showingLeaderboard) {
+                LeaderboardView(isPresented: $showingLeaderboard)
             }
         }
     }
@@ -398,6 +403,95 @@ struct MapView: View {
                         value: isBottomMenuExpanded
                     )
                     
+                    // Leaderboard Button - appears on the left-top when expanded
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            isBottomMenuExpanded = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            showingLeaderboard = true
+                        }
+                    }) {
+                        ZStack {
+                            // Outer glow effect
+                            Circle()
+                                .fill(
+                                    RadialGradient(
+                                        colors: [
+                                            Color.orange.opacity(0.4),
+                                            Color.yellow.opacity(0.2),
+                                            Color.clear
+                                        ],
+                                        center: .center,
+                                        startRadius: 20,
+                                        endRadius: 35
+                                    )
+                                )
+                                .frame(width: 70, height: 70)
+                                .blur(radius: 8)
+                            
+                            // Main button with premium gradient
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color(red: 1.0, green: 0.6, blue: 0.2),
+                                            Color(red: 1.0, green: 0.8, blue: 0.3),
+                                            Color(red: 1.0, green: 0.7, blue: 0.25)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 60, height: 60)
+                                .overlay(
+                                    // Inner highlight
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.3),
+                                                    Color.clear
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .center
+                                            )
+                                        )
+                                )
+                                .overlay(
+                                    // Border with gradient
+                                    Circle()
+                                        .stroke(
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.5),
+                                                    Color.white.opacity(0.2)
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
+                                            lineWidth: 2
+                                        )
+                                )
+                                .shadow(color: Color.orange.opacity(0.5), radius: 15, x: 0, y: 8)
+                                .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
+                            
+                            // Icon
+                            Image(systemName: "trophy.fill")
+                                .font(.system(size: 26, weight: .semibold))
+                                .foregroundColor(.white)
+                                .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
+                        }
+                    }
+                    .offset(x: isBottomMenuExpanded ? -100 : 0, y: isBottomMenuExpanded ? -100 : 0)
+                    .scaleEffect(isBottomMenuExpanded ? 1.0 : 0.3)
+                    .opacity(isBottomMenuExpanded ? 1.0 : 0.0)
+                    .animation(
+                        .spring(response: 0.5, dampingFraction: 0.7)
+                        .delay(isBottomMenuExpanded ? 0.0 : 0),
+                        value: isBottomMenuExpanded
+                    )
+                    
                     // Community Button - appears on the left when expanded
                     Button(action: {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
@@ -407,10 +501,10 @@ struct MapView: View {
                             showingCommunityView = true
                         }
                     }) {
-                ZStack {
+                        ZStack {
                             // Outer glow effect
-                    Circle()
-                        .fill(
+                            Circle()
+                                .fill(
                                     RadialGradient(
                                         colors: [
                                             Color.blue.opacity(0.4),
@@ -423,62 +517,62 @@ struct MapView: View {
                                     )
                                 )
                                 .frame(width: 70, height: 70)
-                        .blur(radius: 8)
-                    
+                                .blur(radius: 8)
+                            
                             // Main button with premium gradient
-                    Circle()
-                        .fill(
-                            LinearGradient(
+                            Circle()
+                                .fill(
+                                    LinearGradient(
                                         colors: [
                                             Color(red: 0.2, green: 0.5, blue: 1.0),
                                             Color(red: 0.5, green: 0.3, blue: 0.9),
                                             Color(red: 0.4, green: 0.4, blue: 1.0)
                                         ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
                                 .frame(width: 60, height: 60)
                                 .overlay(
                                     // Inner highlight
-                    Circle()
-                        .fill(
-                            LinearGradient(
+                                    Circle()
+                                        .fill(
+                                            LinearGradient(
                                                 colors: [
                                                     Color.white.opacity(0.3),
                                                     Color.clear
                                                 ],
-                                    startPoint: .topLeading,
+                                                startPoint: .topLeading,
                                                 endPoint: .center
                                             )
+                                        )
                                 )
-                            )
-                            .overlay(
+                                .overlay(
                                     // Border with gradient
-                                Circle()
+                                    Circle()
                                         .stroke(
                                             LinearGradient(
                                                 colors: [
                                                     Color.white.opacity(0.5),
                                                     Color.white.opacity(0.2)
                                                 ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
                                             ),
                                             lineWidth: 2
-                            )
-                        )
+                                        )
+                                )
                                 .shadow(color: Color.blue.opacity(0.5), radius: 15, x: 0, y: 8)
                                 .shadow(color: Color.black.opacity(0.2), radius: 5, x: 0, y: 2)
-                    
+                            
                             // Icon
                             Image(systemName: "person.2.fill")
                                 .font(.system(size: 26, weight: .semibold))
-                        .foregroundColor(.white)
+                                .foregroundColor(.white)
                                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                         }
                     }
-                    .offset(x: isBottomMenuExpanded ? -90 : 0, y: isBottomMenuExpanded ? -80 : 0)
+                    .offset(x: isBottomMenuExpanded ? -100 : 0, y: isBottomMenuExpanded ? 0 : 0)
                     .scaleEffect(isBottomMenuExpanded ? 1.0 : 0.3)
                     .opacity(isBottomMenuExpanded ? 1.0 : 0.0)
                     .animation(
@@ -496,12 +590,12 @@ struct MapView: View {
                             showingChatView = true
                         }
                     }) {
-            ZStack {
+                        ZStack {
                             // Outer glow effect
                             Circle()
-                    .fill(
+                                .fill(
                                     RadialGradient(
-                            colors: [
+                                        colors: [
                                             Color.green.opacity(0.4),
                                             Color.teal.opacity(0.2),
                                             Color.clear
@@ -515,26 +609,26 @@ struct MapView: View {
                                 .blur(radius: 8)
                             
                             // Main button with premium gradient
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                            colors: [
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
                                             Color(red: 0.2, green: 0.8, blue: 0.5),
                                             Color(red: 0.1, green: 0.7, blue: 0.7),
                                             Color(red: 0.2, green: 0.8, blue: 0.6)
-                            ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
                                 .frame(width: 60, height: 60)
-                            .overlay(
+                                .overlay(
                                     // Inner highlight
-                                Circle()
+                                    Circle()
                                         .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.3),
+                                            LinearGradient(
+                                                colors: [
+                                                    Color.white.opacity(0.3),
                                                     Color.clear
                                                 ],
                                                 startPoint: .topLeading,
@@ -550,10 +644,10 @@ struct MapView: View {
                                                 colors: [
                                                     Color.white.opacity(0.5),
                                                     Color.white.opacity(0.2)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
+                                                ],
+                                                startPoint: .topLeading,
+                                                endPoint: .bottomTrailing
+                                            ),
                                             lineWidth: 2
                                         )
                                 )
@@ -567,7 +661,7 @@ struct MapView: View {
                                 .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 1)
                         }
                     }
-                    .offset(x: isBottomMenuExpanded ? 90 : 0, y: isBottomMenuExpanded ? -80 : 0)
+                    .offset(x: isBottomMenuExpanded ? 100 : 0, y: isBottomMenuExpanded ? 0 : 0)
                     .scaleEffect(isBottomMenuExpanded ? 1.0 : 0.3)
                     .opacity(isBottomMenuExpanded ? 1.0 : 0.0)
                     .animation(

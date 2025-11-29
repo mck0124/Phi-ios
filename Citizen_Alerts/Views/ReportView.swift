@@ -56,16 +56,16 @@ struct ReportView: View {
                         }
                     }
                 } header: {
-                    Text("사고 유형")
+                    Text("Incident Type")
                 }
                 
                 // Title
                 Section {
-                    TextField("제목 입력", text: $title)
+                    TextField("Enter title", text: $title)
                 } header: {
                     Text("Title")
                 } footer: {
-                    Text("간단하게 상황을 설명해주세요")
+                    Text("Provide a short summary of the situation.")
                 }
                 
                 // Description
@@ -73,9 +73,9 @@ struct ReportView: View {
                     TextEditor(text: $description)
                         .frame(height: 100)
                 } header: {
-                    Text("상세 설명")
+                    Text("Detailed Description")
                 } footer: {
-                    Text("자세한 내용을 입력해주세요")
+                    Text("Add as many details as possible.")
                 }
                 
                 // Photos
@@ -85,7 +85,7 @@ struct ReportView: View {
                         maxSelectionCount: 5,
                         matching: .images
                     ) {
-                        Label("사진 추가 (최대 5장)", systemImage: "photo.badge.plus")
+                        Label("Add Photos (up to 5)", systemImage: "photo.badge.plus")
                     }
                     
                     if !selectedPhotos.isEmpty {
@@ -125,7 +125,7 @@ struct ReportView: View {
                 } header: {
                     Text("Photos")
                 } footer: {
-                    Text("증거 사진을 추가해주세요")
+                    Text("Attach supporting photos if available.")
                 }
                 
                 // Severity
@@ -147,9 +147,9 @@ struct ReportView: View {
                         }
                     }
                 } header: {
-                    Text("익명 설정")
+                    Text("Anonymity Settings")
                 } footer: {
-                    Text("신고 시 익명 레벨을 선택하세요")
+                    Text("Choose how your report should be attributed.")
                 }
                 
                 // Location
@@ -158,15 +158,15 @@ struct ReportView: View {
                         HStack {
                             Image(systemName: "location.fill")
                                 .foregroundColor(.red)
-                            Text(String(format: "위도: %.6f", location.latitude))
-                            Text(String(format: "경도: %.6f", location.longitude))
+                            Text(String(format: "Lat: %.6f", location.latitude))
+                            Text(String(format: "Lon: %.6f", location.longitude))
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)
                     } else {
                         HStack {
                             Image(systemName: "location.slash")
-                            Text("위치 정보 없음")
+                            Text("No location info")
                         }
                         .foregroundColor(.orange)
                     }
@@ -177,7 +177,7 @@ struct ReportView: View {
                 } header: {
                     Text("Location")
                 } footer: {
-                    Text("자동으로 현재 위치가 사용되며 필요 시 주소를 입력하세요")
+                    Text("Your current location is used automatically.")
                 }
                 
                 // Submit
@@ -187,7 +187,7 @@ struct ReportView: View {
                             ProgressView()
                                 .frame(maxWidth: .infinity)
                         } else {
-                            Text("신고 제출")
+                            Text("Submit Report")
                                 .frame(maxWidth: .infinity)
                         }
                     }
@@ -203,12 +203,12 @@ struct ReportView: View {
             .onChange(of: selectedPhotosItems) { newItems in
                 loadPhotos(from: newItems)
             }
-            .alert("신고 완료", isPresented: $showSuccessAlert) {
-                Button("Submit") {
+            .alert("Report Submitted", isPresented: $showSuccessAlert) {
+                Button("OK") {
                     dismiss()
                 }
             } message: {
-                Text("신고가 성공적으로 접수되었습니다.")
+                Text("Your report has been received successfully.")
             }
         }
     }

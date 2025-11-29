@@ -16,9 +16,9 @@ struct AlertsListView: View {
     @State private var sortOption: SortOption = .recent
     
     enum SortOption: String, CaseIterable {
-        case recent = "최신순"
-        case distance = "거리순"
-        case severity = "심각도순"
+        case recent = "Most Recent"
+        case distance = "Closest"
+        case severity = "Highest Severity"
     }
     
     var filteredAlerts: [Alert] {
@@ -86,7 +86,7 @@ struct AlertsListView: View {
         HStack {
             Image(systemName: "magnifyingglass")
                 .foregroundColor(.gray)
-            TextField("검색...", text: $searchText)
+            TextField("Search alerts...", text: $searchText)
         }
         .padding()
         .background(Color.adaptiveGray)
@@ -171,7 +171,7 @@ struct AlertsListView: View {
             let index2 = severityOrder.firstIndex(of: alert2.severity) ?? 0
             
             if index1 == index2 {
-                // 같은 심각도면 최신순으로
+                // If severity is the same, sort by most recent
                 return alert1.createdAt > alert2.createdAt
             }
             return index1 < index2
@@ -237,7 +237,7 @@ struct AlertRowView: View {
                 }
                 
                 HStack {
-                    Label("\(alert.reportCount)명", systemImage: "person.2.fill")
+                    Label("\(alert.reportCount) reports", systemImage: "person.2.fill")
                     Spacer()
                     if let distance = distanceToAlert {
                         Text(String(format: "%.1fkm", distance))

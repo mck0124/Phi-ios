@@ -300,25 +300,25 @@ struct AboutView: View {
                         .font(.largeTitle)
                         .fontWeight(.bold)
                     
-                    Text("시민 경고 시스템")
+                    Text("Community Alert System")
                         .font(.title3)
                         .foregroundColor(.secondary)
                     
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("앱 소개")
+                        Text("About the App")
                             .font(.headline)
                         
-                        Text("신속한 경고 시스템과 다중 입력 지원 보고 기능을 제공합니다. 커뮤니티의 위험 활동 알림을 위한 데이터 활용이 강조됩니다.")
+                        Text("Provide rapid alerts and multi-source reports to keep the community safe. Data is shared so residents can stay informed about potential risks.")
                             .foregroundColor(.secondary)
                         
-                        Text("주요 기능")
+                        Text("Key Features")
                             .font(.headline)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            FeatureRow(icon: "map.fill", text: "실시간 지도 표시")
-                            FeatureRow(icon: "bell.fill", text: "주변 알림 수신")
-                            FeatureRow(icon: "camera.fill", text: "사진과 함께 신고")
-                            FeatureRow(icon: "message.fill", text: "챗봇 도움말")
+                            FeatureRow(icon: "map.fill", text: "Real-time safety map")
+                            FeatureRow(icon: "bell.fill", text: "Proximity-based alerts")
+                            FeatureRow(icon: "camera.fill", text: "Report with photos")
+                            FeatureRow(icon: "message.fill", text: "Chatbot assistance")
                         }
                     }
                     .padding()
@@ -328,7 +328,7 @@ struct AboutView: View {
                 }
                 .padding()
             }
-            .navigationTitle("앱 정보")
+            .navigationTitle("About")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif

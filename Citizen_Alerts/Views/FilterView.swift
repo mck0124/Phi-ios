@@ -40,9 +40,9 @@ struct FilterView: View {
                         .foregroundColor(.primary)
                     }
                 } header: {
-                    Text("알림 유형")
+                    Text("Alert Types")
                 } footer: {
-                    Text("선택한 유형의 알림만 표시됩니다. 전체를 보려면 선택하지 않은 상태로 두세요.")
+                    Text("Only the selected type of alerts will appear. Leave everything unchecked to view all alerts.")
                 }
             }
             .navigationTitle("Filter")

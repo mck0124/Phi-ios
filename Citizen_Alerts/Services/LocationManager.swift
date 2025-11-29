@@ -171,7 +171,7 @@ extension LocationManager: CLLocationManagerDelegate {
     }
 }
 
-/// 위치 관련 에러
+/// Location-related errors
 enum LocationError: LocalizedError {
     case permissionDenied
     case locationUpdateFailed(String)
@@ -181,13 +181,13 @@ enum LocationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .permissionDenied:
-            return "위치 권한이 거부되었습니다. 설정에서 권한을 허용해주세요."
+            return "Location access was denied. Please enable it in Settings."
         case .locationUpdateFailed(let message):
-            return "위치를 가져올 수 없습니다: \(message)"
+            return "Unable to fetch your location: \(message)"
         case .locationUnknown:
-            return "위치를 알 수 없습니다."
+            return "Your current location is unknown."
         case .locationServicesDisabled:
-            return "위치 서비스가 비활성화되어 있습니다. 설정에서 위치 서비스를 켜주세요."
+            return "Location services are disabled. Enable them in Settings."
         }
     }
 }

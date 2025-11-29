@@ -266,8 +266,8 @@ struct InfoRow: View {
 #Preview {
     AlertDetailView(alert: Alert(
         type: .fire,
-        title: "강남구 화재 신고",
-        description: "강남역 근처 건물에서 연기가 보입니다.",
+        title: "Gangnam Fire Report",
+        description: "Smoke spotted near Gangnam Station building.",
         location: LocationData(latitude: 37.5665, longitude: 126.9780),
         severity: .high,
         reportCount: 5
